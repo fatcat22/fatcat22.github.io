@@ -2,7 +2,7 @@
 layout: post
 title:  "golang常量"
 categories: golang
-tags: golang
+tags: golang 翻译 constants
 author: fatcat22
 ---
 
