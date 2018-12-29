@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "golang: 新时代的编程语言"
-categories: 计算机科学
+categories: golang
 tags: 原创 golang
 excerpt: 在软件编程的世界里，每一个时代都会出现一个代表性的语言，比如C、C++、JAVA和Python。虽然这几个语言仍是目前主流的编程语言，但我认为最能代表当前这个时代的语言，却是Go。
 author: fatcat22
