@@ -14,13 +14,13 @@ url: "https://fatcat22.github.io" # the base hostname & protocol for your site
 permalink: /:year/:month/:day/:title/
 
 # other links
-#twitter_username: gaohaoyang126
-#facebook_username: gaohaoyang.water
+#twitter_username:
+#facebook_username:
 github_username:  fatcat22
-email: pandayt@163.com
-#weibo_username: 3115521wh
-#zhihu_username: gaohaoyang
-#linkedIn_username: gaohaoyang
+email: yangzhe.me@foxmail.com
+#weibo_username:
+#zhihu_username:
+#linkedIn_username:
 #dribbble_username:
 
 description_footer: #
