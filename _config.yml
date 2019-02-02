@@ -30,7 +30,7 @@ intensedebate_comment: true
 
 # statistic analysis 统计代码
 baidu_tongji: true
-#google_analytics_id: UA-72449510-4 # google 分析追踪id
+google_analytics_id: UA-133670341-1 # google 分析追踪id
 
 # Build settings
 markdown: kramdown
