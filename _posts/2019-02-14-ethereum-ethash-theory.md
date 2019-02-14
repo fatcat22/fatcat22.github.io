@@ -119,7 +119,7 @@ Header.Difficulty = parent_diff + step * direction + expAdjust
 
 这个公式的动态调整体现在`step * direction`这一步的计算中：如果之前的出块时间太快，就增加一下难度出得慢一些；如果之前出块太慢，就减小一下难度出得快一些。但令人费解的是`expAdjust`，这是一个指数式，并且由块的高度作为变量。因此可以预见随着块的高度变大到一定程度，Difficulty将呈现指数级的增长，再也不是动态调整了。如下图红框部分的时间所示。
 
-![](/pic/ethereum-ethash-theroy/difficulty-with-redframe.png)
+![](/pic/ethereum-ethash-theory/difficulty-with-redframe.png)
 
 （关于为什么这张图中随后Difficulty值很快掉下来了，请看后面的分析）
 
@@ -150,7 +150,7 @@ Header.Difficulty = parent_diff +  step * direction  + expAdjust
 ##### 拜占庭(Byzantium)分叉
 我们再来看看这么显示Difficulty变化的图：
 
-![](/pic/ethereum-ethash-theroy/difficulty.png)
+![](/pic/ethereum-ethash-theory/difficulty.png)
 
 相信在前面这到这张图的时候，你就已经产生了疑问：为什么Difficulty值在2017年10月份的时候突然下降了好多呢？因为在这个时间点上以太坊进行了升级（分叉），更改了`Header.Difficulty`的计算方式。这一次分叉就是拜占庭分叉。新的计算方法如下：
 ```
@@ -206,7 +206,7 @@ dataset虽然较大，但它的每个dataItem都是由一个缓存块(cache)生�
 
 缓存块是由seed生成的，而seed的值与块的高度有关。所以生成dataset的过程如下图所示：
 
-![](/pic/ethereum-ethash-theroy/dataset-generate.png)
+![](/pic/ethereum-ethash-theory/dataset-generate.png)
 
 Dagger还有一个关键的地方，就是确定性。即同一个epoch内，每次计算出来的seed、缓存、dataset都是相同的。否则对于同一个区块，挖矿的人和验证的人使用不同的dataset，就没法进行验证了。
 
