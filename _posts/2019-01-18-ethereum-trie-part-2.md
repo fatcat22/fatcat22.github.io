@@ -13,6 +13,10 @@ author: fatcat22
 
 
 
+>本篇文章分析的源码地址为：[https://github.com/ethereum/go-ethereum](https://github.com/ethereum/go-ethereum)  
+>分支：[master](https://github.com/ethereum/go-ethereum/tree/master)  
+>commit id: [257bfff316e4efb8952fbeb67c91f86af579cb0a](https://github.com/ethereum/go-ethereum/tree/257bfff316e4efb8952fbeb67c91f86af579cb0a)  
+
 # 引言
 在上篇文章中，我们讲解了以太坊中Trie的主要原理。在这篇文章里，我们通过探索源代码来进一步了解以太坊trie模块。
 
@@ -20,7 +24,7 @@ author: fatcat22
 
 
 # trie模块使用方法
-trie模块提供了四个主要的对象和接口：Trie、SecureTrie、NodeIterator、TrieSync。下面分别介绍。
+trie模块提供了四个主要的对象和接口：Trie、SecureTrie、NodeIterator、TrieSync、Database。下面分别介绍。
 
 ### Trie
 Trie对象实现了Merkle Patricia Tree的全部功能，包括(key, value)对的增删改查、计算默克尔哈希，以及将整个树写入数据库中。
@@ -47,7 +51,7 @@ func (t \*Trie) Prove(key []byte, fromLevel uint, proofDb DatabaseWriter) error
 ### SecureTrie
 SecureTrie对象实现了Trie相同的功能，实际上它内部几乎都是调用Trie对象的方法实现的。唯一不同的是，SecureTrie中的所有方法会将传入的key计算一个哈希，然后把这个哈希当作key进行操作。因此你无法通过根结点到叶子结点的路径上的信息拼凑出key的内容，这也是它叫作"Secure"的原因。
 
-SecureTrie提供的方法与Trie类似，这里不再细说。
+SecureTrie提供的方法与Trie类似，这里不再细说。唯一需要注意的是，对`SecureTrie`节点进行枚举时，想要获取原始的key值，需要多调用一步`SecureTrie.GetKey`。因为`NodeIterator.LeafKey`和`Iterator.Key`得到的是加密后的key，需要调用`SecureTrie.GetKey`得到原始key。
 
 ### NodeIterator
 NodeIterator是一个接口，如名字所示，它提供了遍历树内部所有结点的功能。它提供的方法如下：
@@ -146,6 +150,24 @@ trSync.Commit(db)
 
 我们可以看到TrieSync并不具备同步的功能，它只是对结点的解析和组装。所以我觉得这个名字起得很有迷惑性，如果是我，我会把它叫做`TrieBuilder`。
 
+### Database
+`Database`是trie模块对真正数据库的缓存层，其目的是对缓存的节点进行引用计数，从而实现区块的修剪功能。`Database`对外提供的方法有：
+>func NewDatabase(diskdb ethdb.Database) \*Database  
+>func NewDatabaseWithCache(diskdb ethdb.Database, cache int) \*Database  
+>func (db \*Database) DiskDB() DatabaseReader  
+>func (db \*Database) InsertBlob(hash common.Hash, blob []byte)  
+>func (db \*Database) Node(hash common.Hash) ([]byte, error)  
+>func (db \*Database) Nodes() []common.Hash  
+>func (db \*Database) Reference(child common.Hash, parent common.Hash)  
+>func (db \*Database) Dereference(root common.Hash)  
+>func (db \*Database) Cap(limit common.StorageSize) error  
+>func (db \*Database) Commit(node common.Hash, report bool) error  
+>func (db \*Database) Size() (common.StorageSize, common.StorageSize)  
+
+其中`NewDatabase`或`NewDatabaseWithCache`用来创建一个`Database`对象，其参数`diskdb`是一个数据库接口。
+
+在以太坊早期的trie模块中是没有`Database`对象的，加上这个就是为了增加节点引用计数功能，实现区块的修剪。详细信息我们后面再进行介绍。
+
 
 # 目录结构
 trie模块功能的实现代码全部位于以太坊项目的trie目录中，且没有子目录。下面我们对主要的源代码文件作简单的说明。
@@ -176,6 +198,10 @@ proof.go中只包含了Prove和VerifyProof两个函数，它们只在轻量级�
 
 - trie.go  
 trie.go实现了Trie对象的主要逻辑功能。
+
+- database.go  
+database.go实现了`Database`对象的主要逻辑功能。
+
 
 # 实现框架
 前面我们说过，以太坊的trie模块提供了4个主要的对象和接口：Trie、SecureTrie、SyncTrie和NodeIterator。然而trie模块的核心功能是Trie对象，所以我们这里仅针对Trie作介绍（SecureTrie与Trie是类似的，实际上SecureTrie基本上是调用了Trie的方法）。
@@ -344,6 +370,183 @@ func (h *hasher) store(n node, db DatabaseWriter, force bool) (node, error) {
 
 其实hasher.hash和hasher.hashChildren始终维护着两棵树，也就是它们的返回值的前两个node。第一棵树是“压缩的”(collapsed)树，这完全是一棵由hashNode组成的树，因此根结点的值也就是整棵树的哈希；第二棵树是原始的树，这样可以防止每次调用Trie.Hash或Trie.Commit后，所有结点都被变成了hashNode，后续再次调用Trie.Get等方法时又得从数据库中重新加载。
 
+
+### Database
+前面我们说过，在早期的以太坊trie版本中是没有`Database`对象的，后来加上这个对象就是用来实现区块的修剪功能（关于区块的修剪可以参看[这里](https://yangzhe.me/2019/03/24/ethereum-blockchain/#pruned-block)）。那么`Database`是怎么实现的呢？那就是对内存中的trie树节点进行引用计数，当引用计数为时，从内存中删除此节点。
+
+在`Database`结构体中，对trie树节点实现引用计数功能的字段是`dirties`，它的类型是`map[common.Hash]*cachedNode`。其中`cachedNode`代表的是一个有引用计数的节点，它的定义如下：
+```go
+type cachedNode struct {
+  node node   // node接口
+  size uint16
+
+  parents  uint32                 // 引用当前节点的节点数量
+  children map[common.Hash]uint16 // 当前节点的子结点的引用计数
+
+  flushPrev common.Hash // flush-list列表的字段
+  flushNext common.Hash
+}
+```
+
+在这个结构体中，`parents`和`children`实现了引用计数功能。而`flushPrev`和`flushNext`将当前节点加入到了flush-list链表中。
+
+##### insert
+
+我们先看看写入节点时会发生什么。当调用trie的Commit方法时，最终会调用`Database.insert`方法，且`Database.InsertBlob`其实也是调用insert方法，因此我们从这个方法看起：
+```go
+func (db *Database) insert(hash common.Hash, blob []byte, node node) {
+  //已存在立即返回
+  if _, ok := db.dirties[hash]; ok {
+    return
+  }
+  //构造cacheNode
+  entry := &cachedNode{
+    node:      simplifyNode(node),
+    size:      uint16(len(blob)),
+    flushPrev: db.newest,
+  }
+  //引用子节点，将所有子节点的parents加1
+  for _, child := range entry.childs() {
+    if c := db.dirties[child]; c != nil {
+      c.parents++
+    }
+  }
+  db.dirties[hash] = entry
+
+  //加入flush-list链表
+  if db.oldest == (common.Hash{}) {
+    db.oldest, db.newest = hash, hash
+  } else {
+    db.dirties[db.newest].flushNext, db.newest = hash, hash
+  }
+  db.dirtiesSize += common.StorageSize(common.HashLength + entry.size)
+}
+```
+
+`Database.insert`的主要逻辑非常简单，就是构造一个新加入的`cacheNode`节点，然后增加所有子节点的引用计数（parents字段）。注意这里并没有增加新节点自身的parents计数，因为这里只是往数据库里加入一个新节点，没有证据显示有人引用了这个节点。
+
+##### reference
+以太坊在进行区块的修剪时会调用`Database.Reference`和`Database.Dereference`两个方法。为了分析的完整一些，我们先来看看修剪时的调用：
+```go
+func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.Receipt, state *state.StateDB) (status WriteStatus, err error) {
+  ......
+  if bc.cacheConfig.Disabled {
+    ......  
+  } else {
+    triedb.Reference(root, common.Hash{}) // metadata reference to keep trie alive
+    ......
+
+      for !bc.triegc.Empty() {
+        ......
+        triedb.Dereference(root.(common.Hash))
+      }
+  }
+}
+```
+
+这里先引用一整棵树，经过一些判断和处理，再找合适机会解引用这棵树（详细分析请参看[这里](https://yangzhe.me/2019/03/24/ethereum-blockchain/#pruned-block)）。
+
+对节点进行引用的功能主要在`Database.reference`中实现，我们来看看这个方法：
+```go
+func (db *Database) reference(child common.Hash, parent common.Hash) {
+  //如果child节点不在缓存中，立即返回
+  node, ok := db.dirties[child]
+  if !ok {
+    return
+  }
+  //如果children字段不存在则构造并继续后面的执行。
+  //如果children已存在说明已经引用过子节点了，那么如果child变量代表的不是根节点，就直接返回
+  if db.dirties[parent].children == nil {
+    db.dirties[parent].children = make(map[common.Hash]uint16)
+  } else if _, ok = db.dirties[parent].children[child]; ok && parent != (common.Hash{}) {
+    return
+  }
+
+  //增加引用计数
+  node.parents++
+  db.dirties[parent].children[child]++
+}
+```
+
+这个方法就是增加`child`和`parent`节点的各自的引用计数。但这里有一个特殊的地方，就是如果`child`已经被`parent`引用过了，且`child`代表的不是一个根节点，那么就不继续增加`parent`对`child`的引用了；如果`child`代表一个根节点，还是要继续增加`parent`对`child`的引用。
+
+这个处理有些难以理解，我们多解释一下。当父节点已经引用过某个子节点时，不再增加对子节点的引用是合理的，因为一个父节点只能引用 **某个特定的子节点** 一次，不存在引用多次的情况。但为什么`parent`为`common.Hash{}`时，还要继续引用呢？
+
+这是因为在调用`Database.Reference`时，如果`child`参数是一个根节点，那么`parent`的值肯定是`common.Hash{}`，也即`common.Hash{}`是任一trie树的根节点的父节点；所以这里判断`parent`是否是`common.Hash{}`，也就是在判断`child`参数是否是一个根节点。对根节点的引用与对普通节点引用的不同之处在于，普通节点的引用发生在trie树的内部，因此刚才说了，一个父节点只能引用 **某个特定的子节点** 一次；而根节点是可以被trie树以外的地方引用的，比如在miner模块中引用了某个trie树的根节点，然后blockchain模块又对这个根节点引用了一次。所以这种情况不存在`common.Hash{}`只能引用某个根节点一次的情况。
+
+##### deference
+下面我们再来看看解引用的代码。解引用主要在`Database.dereference`中实现：
+```go
+func (db *Database) dereference(child common.Hash, parent common.Hash) {
+  // Dereference the parent-child
+  node := db.dirties[parent]
+
+  //首先解除父节点对子节点的引用
+  if node.children != nil && node.children[child] > 0 {
+    node.children[child]--
+    if node.children[child] == 0 {
+      delete(node.children, child)
+    }
+  }
+
+  //如果child不存在，立即返回
+  node, ok := db.dirties[child]
+  if !ok {
+    return
+  }
+
+  //减小对child参数代表的节点的引用
+  if node.parents > 0 {
+    node.parents--
+  }
+
+  //如果没人再引用这个节点，则删除它
+  if node.parents == 0 {
+    //将这个节点从flush-list中删除
+    switch child {
+      ......
+    }
+
+    //解除对所有子节点的引用，然后删除节点
+    for _, hash := range node.childs() {
+      db.dereference(hash, child)
+    }
+    delete(db.dirties, child)
+    db.dirtiesSize -= common.StorageSize(common.HashLength + int(node.size))
+  }
+}
+```
+
+这段代码逻辑也比较简单，已经用中文注释进行了说明，这里就不再赘述了。但需要多说一点的时，只有某个节点将要被删除时，才会解引用所有子节点，而不是解引用某个节点的同时也解引用所有子节点。想象一下存在一个引用计数为2的节点A，它有一个引用计数为1的节点B（也即B只被A引用了）。当我们对A进行解引用时，A的计数变成了1，如果我们此时同时解引用A的子节点，那么B的计数将变成0从而被删除，但A仍然需要这么节点。因此只有当A的引用计数变为0将要被删除时，才应该解引用它的所有子节点。
+
+##### flush-list
+前面我们多次提到"flush-list"这个概念，现在我们就来看看它是什么。要了解flush-list，首先要了解`Database.Cap`的功能。这个方法将缓存中的数据刷到真实的数据库中，直到缓存占用的内存量达到参数的要求。flush-list就是决定在刷新缓存时，先刷哪个节点、最后刷哪个节点的一个双向链表。`Database.oldest`和`Database.newest`定义了这个链表的头和尾，链表的元素是`cachedNode`，而将`cacheNode`加入到这个链表中的字段就是`cacheNode.flushNext`和`cacheNode.flushPrev`。
+
+我们直接看一下`Database.Cap`是如何使用这个链表的：
+```go
+func (db *Database) Cap(limit common.StorageSize) error {
+  ......
+
+  oldest := db.oldest
+  for size > limit && oldest != (common.Hash{}) {
+    // Fetch the oldest referenced node and push into the batch
+    node := db.dirties[oldest]
+    if err := batch.Put(oldest[:], node.rlp()); err != nil {
+      db.lock.RUnlock()
+      return err
+    }
+
+    ......
+
+    size -= common.StorageSize(3*common.HashLength + int(node.size))
+    oldest = node.flushNext
+  }
+
+  ......
+}
+```
+
+可以看到这是一个典型的链表的遍历。至于其它对flush-list插入和删除的代码，相信在了解了它的功能以后，会很容易看懂，因此这里就不再详细说明了。
 
 
 # 总结

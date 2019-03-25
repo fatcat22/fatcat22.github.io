@@ -313,7 +313,7 @@ func SetupGenesisBlockWithOverride(db ethdb.Database, genesis *Genesis, constant
 ### 修剪
 那么一个以太坊节点有没有必要存储state的所有历史数据呢？绝大多数情况下是不需要的。对于那些不需要的数据，我们可以不进行存储。万一哪天需要用到了，由于保存了完整的区块信息，我们是可以费点时间重新计算得到这些数据的。
 
-以太坊提供的方式是对trie树的节点进行修剪。在trie的实现中，会对存在于内存中的节点进行“引用计数”，即每个节点都有一个记录自己被引用次数的数字，当引用数量变为0时，节点内存就会被释放，也就不会被写入到数据库中去了。trie模块提供了`trie.Database.Reference`和`trie.Database.Dereference`方法，可以引用和解引用某一个节点。在这两个方法内部，除了会引用或解引用参数提供的节点，还会同时操作其所有的子节点。当然节点的引用计数这一方式只有在节点还未被写入数据库之前、以缓存的方式存在于内存时有效，当trie树的节点被写入数据库时，是不会写入引用计数数据的。
+以太坊提供的方式是对trie树的节点进行修剪。在trie的实现中，会对存在于内存中的节点进行“引用计数”，即每个节点都有一个记录自己被引用次数的数字，当引用数量变为0时，节点内存就会被释放，也就不会被写入到数据库中去了。trie模块提供了`trie.Database.Reference`和`trie.Database.Dereference`方法，可以引用和解引用某一个节点（关于对trie节点的引用，可以参考[这篇文章](https://yangzhe.me/2019/01/12/ethereum-trie-part-1/)和[这篇文章](https://yangzhe.me/2019/01/18/ethereum-trie-part-2/)）。
 
 trie节点的这种“引用计数”式的设计应该是很好理解的，[这篇文章](https://blog.ethereum.org/2015/06/26/state-tree-pruning/)也对其进行了详细的说明。在本篇文章里，我们重点关注blockchain模块是如何使用这一功能对state进行修剪的。
 
@@ -375,7 +375,7 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 }
 ```
 
-进行修剪之前，首先会引用这个新的trie树的根节点，因为毕竟是当前区块产生了这个新的trie树，而目前我们还不知道是否会丢弃这棵树上的一些节点。注意`triedb.Reference`这一调用会将`root`所代表的trie树上的每一个子节点都增加一次引用计数。
+进行修剪之前，首先会引用这个新的trie树的根节点，因为毕竟是当前区块产生了这个新的trie树，而目前我们还不知道是否会丢弃这棵树。
 
 在进行引用之后，则将`root`和区块的高度写入`BlockChain`的`triegc`字段中。这里我们必须介绍一下`bc.triegc`这个字段。`triegc`代表的是trie的回收队列（trie Garbage Collect），它的类型是一个优先级队列。从上面的代码中可以看到主要用到了`Push`和`Pop`两个方法。其中`Push`将数据写入队列中，附带着一个优先级值（第二个参数）。而`Pop`则将当前队列中优先级值最大的数据弹出队列并返回。由于Push时优先级值是区块高度的相反数，是一个负数，因此Pop时首先弹出的是高度最小的区块的数据（也即最老旧的区块）。
 
