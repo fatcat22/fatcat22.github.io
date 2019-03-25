@@ -14,6 +14,11 @@ author: fatcat22
 
 
 
+>本篇文章分析的源码地址为：[https://github.com/ethereum/go-ethereum](https://github.com/ethereum/go-ethereum)  
+>分支：[master](https://github.com/ethereum/go-ethereum/tree/master)  
+>commit id: [257bfff316e4efb8952fbeb67c91f86af579cb0a](https://github.com/ethereum/go-ethereum/tree/257bfff316e4efb8952fbeb67c91f86af579cb0a)  
+
+
 # 引言
 所有的区块链项目中，“挖矿”都是非常重要的一项功能。前面几篇文章中我们介绍了以太坊中挖矿的两种共识实现模块：clique和ethash。那么这篇文章里，我们介绍另一个与挖矿紧密相关的模块miner。
 

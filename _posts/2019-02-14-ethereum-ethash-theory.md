@@ -15,6 +15,11 @@ mathjax: true
 
 
 
+>本篇文章分析的源码地址为：[https://github.com/ethereum/go-ethereum](https://github.com/ethereum/go-ethereum)  
+>分支：[master](https://github.com/ethereum/go-ethereum/tree/master)  
+>commit id: [257bfff316e4efb8952fbeb67c91f86af579cb0a](https://github.com/ethereum/go-ethereum/tree/257bfff316e4efb8952fbeb67c91f86af579cb0a)  
+
+
 # 引言
 目前以太坊中有两个共识算法的实现：clique和ethash。其中clique中PoA共识的实现，我们已经在[之前的文章](https://yangzhe.me/2019/02/01/ethereum-clique/)中介绍过；ethash是PoW共识的实现，也是本篇文章的主题。
 

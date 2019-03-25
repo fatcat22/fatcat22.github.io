@@ -14,6 +14,11 @@ author: fatcat22
 
 
 
+>本篇文章分析的源码地址为：[https://github.com/ethereum/go-ethereum](https://github.com/ethereum/go-ethereum)  
+>分支：[master](https://github.com/ethereum/go-ethereum/tree/master)  
+>commit id: [257bfff316e4efb8952fbeb67c91f86af579cb0a](https://github.com/ethereum/go-ethereum/tree/257bfff316e4efb8952fbeb67c91f86af579cb0a)  
+
+
 # 引言
 以太坊中，当你要挖矿或发送交易时，都需要一个账号和私钥。众所周知，与普通应用程序的账号密码不同，区块链中私钥一旦丢失，是没有“忘记密码”按钮的；如果被盗，你也不可能“修改密码”。所以私钥在安全性就非常重要。
 

@@ -14,6 +14,11 @@ author: fatcat22
 
 
 
+>本篇文章分析的源码地址为：[https://github.com/ethereum/go-ethereum](https://github.com/ethereum/go-ethereum)  
+>分支：[master](https://github.com/ethereum/go-ethereum/tree/master)  
+>commit id: [257bfff316e4efb8952fbeb67c91f86af579cb0a](https://github.com/ethereum/go-ethereum/tree/257bfff316e4efb8952fbeb67c91f86af579cb0a)  
+
+
 # 引言
 共识算法是区块链项目的核心之一，每一个运行着的区块链都需要一个共识算法来保证出块的有效性和有序性。在以太坊的官方源码中，有两个共识算法：clique和ethash，它们都位于以太坊项目的consensus目录下。clique目录下的代码实现的是PoA(权威证明，Proof of Authority)共识，这是这篇文章要分析的代码；在ethash目录下实现的是PoW(工作量证明，Proof of Work)共识，下一篇文章将会对其进行介绍。
 

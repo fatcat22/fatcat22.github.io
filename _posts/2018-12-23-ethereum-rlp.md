@@ -12,6 +12,11 @@ author: fatcat22
 
 
 
+>本篇文章分析的源码地址为：[https://github.com/ethereum/go-ethereum](https://github.com/ethereum/go-ethereum)  
+>分支：[master](https://github.com/ethereum/go-ethereum/tree/master)  
+>commit id: [257bfff316e4efb8952fbeb67c91f86af579cb0a](https://github.com/ethereum/go-ethereum/tree/257bfff316e4efb8952fbeb67c91f86af579cb0a)  
+
+
 # 引言
 以太坊是区块链项目中最为知名的项目之一，这里就不多做介绍了。rlp（Recursive Length Prefix）是以太坊中一个模块，其功能就是对对象进行序列化和反序列化（实际上根据官方的介绍，rlp唯一的目的是解决结构体的编码问题）。我们在这篇文章中将对rlp进行详细说明。
 

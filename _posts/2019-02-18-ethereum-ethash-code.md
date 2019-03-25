@@ -14,6 +14,11 @@ author: fatcat22
 
 
 
+>本篇文章分析的源码地址为：[https://github.com/ethereum/go-ethereum](https://github.com/ethereum/go-ethereum)  
+>分支：[master](https://github.com/ethereum/go-ethereum/tree/master)  
+>commit id: [257bfff316e4efb8952fbeb67c91f86af579cb0a](https://github.com/ethereum/go-ethereum/tree/257bfff316e4efb8952fbeb67c91f86af579cb0a)  
+
+
 # 引言
 在[ethash的理论介绍篇](https://yangzhe.me/2019/02/14/ethereum-ethash-theory/)中，我们介绍了ethash模块的设计思想和实现原理。那么本篇文章，我们就来一起看看它的源代码吧。
 
