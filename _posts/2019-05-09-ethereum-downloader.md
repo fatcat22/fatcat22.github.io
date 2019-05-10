@@ -30,7 +30,7 @@ author: fatcat22
 
 downloader 模块的代码位于 eth/downloader 目录下。其主要的功能代码分别在 downloader.go、peer.go、queue.go、statesync.go 中。
 
-downloader.go 文件中实现了区块同步的主要功能和逻辑，而 queue.go 实现了 `queue` 对象（关于 `queue` 对象的介绍请参看[这篇文章](http://yangzhe.me/2019/05/10/ethereum-downloader.queue/)），你可以理解为这是一个对区块的组装队列。而 peer.go 实际上是对 eth/peer.go 中的对象的封装，增加了节点是否空闲(idle) 的统计，statesync.go 很明显是用来同步 state 对象的。
+downloader.go 文件中实现了区块同步的主要功能和逻辑，而 queue.go 实现了 `queue` 对象（关于 `queue` 对象的介绍请参看[这篇文章](https://yangzhe.me/2019/05/10/ethereum-downloader.queue/)），你可以理解为这是一个对区块的组装队列。而 peer.go 实际上是对 eth/peer.go 中的对象的封装，增加了节点是否空闲(idle) 的统计，statesync.go 很明显是用来同步 state 对象的。
 
 
 # 同步模式
@@ -152,7 +152,7 @@ func (d *Downloader) fetchParts(..., deliveryCh chan dataPack, wakeCh chan bool,
 
 在 fast 模式下，downloader 还有一个「pivot」的概念。我们知道 fast 模式不会在本地计算 state 和 receipt 数据。但在同步时，还是会有某个高度以后的区块的 state 会在本地计算，而非从网络同步，这个高度就是 pivot。高度低于 pivot 的区块没有 state 数据；pivot 区块从网络中同步 state；高度大于 pivot 的区块则在本地计算 state 数据。关于 pivot 的具体内容我们在下面还会进行详细的说明。
 
-在 downloader 模块中，还有一个 `queue` 对象。这个对象的功能就是对将要同步的数据进行管理，以及将同步到的数据进行组装。比如在同步之初，`Downloader` 对象会将需要同步的「骨架」写入 `queue` 对象中，并在header同步成功时告诉 `queue` ；而下载 body 和 receipt 的线程也可能询问 `queue` 有哪些数据是它们可以下载的。最后， `Downloader` 还可以询问 `queue` 对象有哪些区块的所有数据已经下载完成了。关于 `queue` 的详细内容，请参看[这篇文章](http://yangzhe.me/2019/05/10/ethereum-downloader.queue/)。
+在 downloader 模块中，还有一个 `queue` 对象。这个对象的功能就是对将要同步的数据进行管理，以及将同步到的数据进行组装。比如在同步之初，`Downloader` 对象会将需要同步的「骨架」写入 `queue` 对象中，并在header同步成功时告诉 `queue` ；而下载 body 和 receipt 的线程也可能询问 `queue` 有哪些数据是它们可以下载的。最后， `Downloader` 还可以询问 `queue` 对象有哪些区块的所有数据已经下载完成了。关于 `queue` 的详细内容，请参看[这篇文章](https://yangzhe.me/2019/05/10/ethereum-downloader.queue/)。
 
 下面我们就逐一地详细分析一下这些比较重要的内容。
 
@@ -714,7 +714,7 @@ func (d *Downloader) processFastSyncContent(latest *types.Header) error {
 
 `Downloader.fetchParts`这个方法用来获取区块数据，在获取区块的三部分数据的方法中（fillHeaderSkeleton、fetchBodies、fetchReceipts），都是调用 `fetchParts` 实现的，但这个方法又过于复杂，我自己在看的时候反反复复好多次才看明白这个方法。尤其是其巨长无比的参数列表和实现代码，很轻易的让我产生了畏难的心理（可能正是这种畏难心理阻碍了自己，因为看明白以后发现其实实现得也挺简单的）。因此这里专门用一小节来说明一下这个方法。
 
-`fetchParts` 方法中的很多逻辑和功能都和 `queue` 对象密不可分，但这篇文章里我们不会对 `queue` 对象进行详细的介绍（对于 `queue` 的详细分析请参看[这篇文章](http://yangzhe.me/2019/05/10/ethereum-downloader.queue/)），目前为止读者可将 `queue` 理解成一批区块数据的组装器。区块的下载顺序是先下载 header，再根据 header 去下载 body 和 receipt（如果是 fast 模式），`queue` 提供了这一过程中对这些数据的管理，可以告知调用者哪些数据可以开始下载了、哪些数据正在下载中、哪些数据下载超时等信息。
+`fetchParts` 方法中的很多逻辑和功能都和 `queue` 对象密不可分，但这篇文章里我们不会对 `queue` 对象进行详细的介绍（对于 `queue` 的详细分析请参看[这篇文章](https://yangzhe.me/2019/05/10/ethereum-downloader.queue/)），目前为止读者可将 `queue` 理解成一批区块数据的组装器。区块的下载顺序是先下载 header，再根据 header 去下载 body 和 receipt（如果是 fast 模式），`queue` 提供了这一过程中对这些数据的管理，可以告知调用者哪些数据可以开始下载了、哪些数据正在下载中、哪些数据下载超时等信息。
 
 我们先来看一下它的整体结构代码：
 ```go
@@ -917,7 +917,7 @@ func (d *Downloader) fetchParts(......) error {
 
 `inFlight` 参数也是一个回调函数，从名字就可以看出，它的目的是判断是否还有正在下载的、但还没下载完成的数据（所谓「漂在空中」）。它的实际值是 `queue` 对象的 InFlight 方法：`queue.InFlightHeaders`、`queue.InFlightBlocks`、`queue.InFlightReceipts`。这些 InFlight 方法的实现与 Pending 方法类似，会返回 `queue` 对象内部记录的正在下载的数据数量。
 
-（关于 `queue` 对象的详细分析，请参看[这篇文章](http://yangzhe.me/2019/05/10/ethereum-downloader.queue/)）
+（关于 `queue` 对象的详细分析，请参看[这篇文章](https://yangzhe.me/2019/05/10/ethereum-downloader.queue/)）
 
 在有效性判断完成以后，我们再来看看后续的代码：
 ```go
@@ -971,7 +971,7 @@ func (d *Downloader) fetchParts(......) error {
 
 `idle` 参数是一个回调函数，用来返回所有当前空闲的节点。它的实际值是 `peerSet` 对象的 IdlePeers 方法：`peerSet.HeaderIdlePeers`、`peerSet.BodyIdlePeers`、`peerSet.ReceiptIdlePeers`。在 downloader 模块中的 `peerConnection` 对象中，实现了对 eth 模块中的 `peer` 对象的封装，增加了一些状态信息，其中就包含是否空闲。而 `peerSet` 是一个对 `peerConnection` 的管理对象。关于 `peerConnection` 与 `peerSet` 的详细信息，请参看 「peerConnection 与 peerSet」小节。
 
-`throttle` 参数也是一个回调函数，从名字可以看出，这个函数的功能是返回当前的下载是否需要暂停一下。对于 header 的下载，它的实际值是一个总是返回 false 的函数（可见下载 header 时是从来不会暂停一下的）；而对于 body 和 receipt，它的实际值是 `queue` 对象的 ShouldThrottle 方法：`queue.ShouldThrottleBlocks`、`queue.ShouldThrottleReceipts`。为什么在下载过程中需要暂停一下呢？其实主要是为了防止占用本地太多的内存。从 `queue` 对象的 ShouldThrottle 方法的实现来看，如果下载中的数据个数加上下载完成但仍在缓存中的数据个数，超过了 `limit`，就需要暂停一下；而 `limit` 最大值是 `blockCacheMemory` 这么大小的内存（64 M）所以存放的数据个数。（关于 `queue` 的详细实现，请参看[这篇文章](http://yangzhe.me/2019/05/10/ethereum-downloader.queue/)）
+`throttle` 参数也是一个回调函数，从名字可以看出，这个函数的功能是返回当前的下载是否需要暂停一下。对于 header 的下载，它的实际值是一个总是返回 false 的函数（可见下载 header 时是从来不会暂停一下的）；而对于 body 和 receipt，它的实际值是 `queue` 对象的 ShouldThrottle 方法：`queue.ShouldThrottleBlocks`、`queue.ShouldThrottleReceipts`。为什么在下载过程中需要暂停一下呢？其实主要是为了防止占用本地太多的内存。从 `queue` 对象的 ShouldThrottle 方法的实现来看，如果下载中的数据个数加上下载完成但仍在缓存中的数据个数，超过了 `limit`，就需要暂停一下；而 `limit` 最大值是 `blockCacheMemory` 这么大小的内存（64 M）所以存放的数据个数。（关于 `queue` 的详细实现，请参看[这篇文章](https://yangzhe.me/2019/05/10/ethereum-downloader.queue/)）
 
 `reserve` 参数是一个回调函数，它的目的是从下载任务中选取一些可以下载的任务，并构造一个 `fetchRequest` 结构。它的实际实现都是调用 `queue` 对象的 Reserve 方法：`queue.ReserveHeaders`、`queue.ReserveBodies`、`queue.ReserveReceipts`。除了返回 `fetchRequest` 对象，它还返回一个 `process` 变量，标记着是否有空的数据正在被处理。比如有可能某区块中未包含任何一条交易，因此它的 body 和 receipt 都是空的，这种数据其实是不需要下载的。在 `queue` 对象的 Reserve 方法中，会对这种情况进行识别。如果遇到空的数据，这些数据会被直接标记为下载成功。在方法返回时，就将是否发生过「直接标记为下载成功」的情况返回。
 
@@ -1596,6 +1596,6 @@ func (d *Downloader) runStateSync(s *stateSync) *stateSync {
 
 在 fast 模式下，downloader 模块在下载区块的过程中，还会从高度较高的区块中选择一个区块作为 「pivot」 区块。 pivot 区块的特殊点在于，在它之前的区块是没有 state 数据的；而 pivot 区块的 state 对数是从其它节点中下载的；pivot 之后的区块以 pivot 区块的 state 为基础，在本地通过 body 计算出自己的 state 数据并存储起来（也就是说 pivot 之后的区块和 full 模式下的区块的处理方式是一样的）。
 
-在整个下载过程中，需要 `Downloader` 对象和 `queue` 对象密切配合，共同完成区块下载的逻辑。本篇文章里我们只分析了 `Downloader` 对象的一些实现，`queue` 对象有的详细分析请参看[这里](http://yangzhe.me/2019/05/10/ethereum-downloader.queue/)。
+在整个下载过程中，需要 `Downloader` 对象和 `queue` 对象密切配合，共同完成区块下载的逻辑。本篇文章里我们只分析了 `Downloader` 对象的一些实现，`queue` 对象有的详细分析请参看[这里](https://yangzhe.me/2019/05/10/ethereum-downloader.queue/)。
 
 本篇文章中只分析了 downloader 模块的一些关键部分，并没有分析到每一处细节。此外限于我的水平，文章中难免有错误。所以如果您有什么问题，欢迎留言或发邮件讨论。

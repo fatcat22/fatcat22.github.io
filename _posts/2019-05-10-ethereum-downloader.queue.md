@@ -71,7 +71,7 @@ cancel 功能与 reserve 相反，用来撤消对 `fetchRequest` 结构中的数
 
 ### ScheduleSkeleton
 
-接下来 `Downloader` 对象该开始填充 skeleton 了，因此在 `Downloader.fillHeaderSkeleton` 中，`queue.ScheduleSkeleton` 被调用。之前我们说过，以太坊在同步区块时，先确定要下载的区块的高度区间，然后将这个区间按 `MaxHeaderFetch` 切分成很多组，每一组的最后一个区块组成了 「skeleton」（最后一组不满 `MaxHeaderFetch` 个区块不算作一组，详细信息请参看[这篇文章](http://yangzhe.me/2019/05/09/ethereum-downloader/)中的「header 的下载和 skeleton」小节）。
+接下来 `Downloader` 对象该开始填充 skeleton 了，因此在 `Downloader.fillHeaderSkeleton` 中，`queue.ScheduleSkeleton` 被调用。之前我们说过，以太坊在同步区块时，先确定要下载的区块的高度区间，然后将这个区间按 `MaxHeaderFetch` 切分成很多组，每一组的最后一个区块组成了 「skeleton」（最后一组不满 `MaxHeaderFetch` 个区块不算作一组，详细信息请参看[这篇文章](https://yangzhe.me/2019/05/09/ethereum-downloader/)中的「header 的下载和 skeleton」小节）。
 
 例如，假设已确定需要下载的区块高度区间是从 10 到 46，`MaxHeaderFetch` 的值为 10，那么这个高度区块就会被分成 3 组：10 - 19，20 - 29，30 - 39，而 skeleton 则分别由高度为 19、29、39 的区块头组成。下面的分析中我们会继续使用这个例子中的数值，但不会重新说明，请读者注意。
 
@@ -308,7 +308,7 @@ func (q *queue) DeliverHeaders(id string, headers []*types.Header, headerProcCh 
     return len(headers), nil
 }
 ```
-这里就很简单了，如果 `queue.headerTaskPool` 为空，说明 skeleton 中所有组都被下载完了，因此发送消息给 `queue.headerContCh`。这个 channel 在 `Downloader.fillHeaderSkeleton` 中是作为 `wakeCh` 传给 `Downloader.fetchParts` 的，用来通知 header 数据已经下载完成了（详细信息参看 [这篇文章](http://yangzhe.me/2019/05/09/ethereum-downloader/)中的「fetchParts」小节）。
+这里就很简单了，如果 `queue.headerTaskPool` 为空，说明 skeleton 中所有组都被下载完了，因此发送消息给 `queue.headerContCh`。这个 channel 在 `Downloader.fillHeaderSkeleton` 中是作为 `wakeCh` 传给 `Downloader.fetchParts` 的，用来通知 header 数据已经下载完成了（详细信息参看 [这篇文章](https://yangzhe.me/2019/05/09/ethereum-downloader/)中的「fetchParts」小节）。
 
 总得来看，`queue.DeliverHeaders` 用来处理下载成功的 header 数据，它会对数据进行检验和保存，并发送 channel 消息给 `Downloader.processHeaders` 和 `Downloader.fetchParts` 的 `wakeCh` 参数。
 
