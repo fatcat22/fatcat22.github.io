@@ -300,6 +300,30 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 
 因此在以太坊中，“主链”的认定就不是哪个链的高度高，而是哪个链的“Difficulty”总值大，这其中当然包含链上的叔块的“Difficulty”值（具体的计算方法我们以后的文章里再细说，有兴趣的读者可以自己查看`HeaderChain.GetTd`方法，和`BlockChain.writeBlockWithState`中关于`externTd`和`localTd`两个变量的代码）。并且以太坊给包含叔块的区块一些奖励，鼓励矿工将叔块包含进“主链”中，因此主链的“Difficulty”值会更大，更安全。
 
+注意在以太坊中，一个区块的叔块与这个区块之间，高度差不能超过 7， miner 模块中的以下代码可以证明：
+```go
+func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) {
+  ......
+
+  uncles := make([]*types.Header, 0, 2)
+  commitUncles := func(blocks map[common.Hash]*types.Block) {
+    // Clean up stale uncle blocks first
+    for hash, uncle := range blocks {
+      if uncle.NumberU64()+staleThreshold <= header.Number.Uint64() {
+        delete(blocks, hash)
+      }
+    }
+    ......
+  }
+  commitUncles(w.localUncles)
+  commitUncles(w.remoteUncles)
+
+  ......
+}
+```
+`commitUncles` 用来在生成新的区块时，选择有效的 uncle 区块，其中 `blocks` 参数就是备选的 uncle 区块。在这个函数里，首先做的就是将高度差大于 `staleThreshold` 的备选 uncle 区块删除掉。而 `staleThreshold` 的值就是 7。
+
+
 ### 出块频率可动态调整
 这里的出块频率，是指`timer`的频率，因此这里说的调整频率也是指调整`timer`的时间间隔。因为除了`startCh`事件，其它出块事件基本是当前模块无法控制的，因此也谈不上频率。
 
