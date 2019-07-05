@@ -819,7 +819,7 @@ func (s *Server) handle(ctx context.Context, codec ServerCodec, req *serverReque
 
 大体了解了这整个过程以后，我们就从代码的层面来看一下这这个过程是如何实现的。
 
-前面我们已经说过，只有使用 websocket 或 ipc 的方式连接服务端时，才可以使用订阅的功能。因为这两种连接机制是长连接且双向通信，即连接建立以后可以一直保持，并可以主动发数据给客户端。这两种连接的消息处理函数也是在连接建立以后一直运行，直到连接中断后才会退出。所以在这里我们首先要注意的是在消息处理函数运行之初，建立的一个 notifier 对象：
+前面我们已经说过，只有使用 websocket 或 ipc 的方式连接服务端时，才可以使用订阅的功能。因为这两种连接机制是持久连接且双向通信，即连接建立以后可以一直保持，并可以主动发数据给客户端。这两种连接的消息处理函数也是在连接建立以后一直运行，直到连接中断后才会退出。所以在这里我们首先要注意的是在消息处理函数运行之初，建立的一个 notifier 对象：
 ```go
 func (s *Server) serveRequest(ctx context.Context, codec ServerCodec, singleShot bool, options CodecOption) error {
     ......
@@ -1235,7 +1235,7 @@ func (srv *Server) WebsocketHandler(allowedOrigins []string) http.Handler {
 ```
 从这里可以看到，websocket 服务的消息处理对象，其实是利用现成的库 websocket 创建的。这里创建了一个 `websocket.Server` 结构体作为消息请求的处理对象，它的 Handler 字段是一个匿名函数，最终调用的是 `Server.ServeCodec` 方法。注意它们的编码和解码方法也与 HTTP 的不同。
 
-另外 websocket 建立的连接是长连接，因此一旦连接建立起来，它的 handler 就会一直运行，直到连接中断。
+另外 websocket 建立的连接是持久连接，因此一旦连接建立起来，它的 handler 就会一直运行，直到连接中断。
 
 
 # 总结
