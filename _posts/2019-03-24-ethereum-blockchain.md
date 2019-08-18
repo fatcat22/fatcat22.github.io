@@ -214,7 +214,7 @@ func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block) error {
   }
 
   //调用BlockChain.insert将newBlock分支上所有区块作为主链区块写入数据库中
-  //同时删掉重复的交易信息
+  //同时删掉只在旧链上的交易的索引信息（并不删除交易本身，只是删除 txLookupEntry）
   var addedTxs types.Transactions
   for i := len(newChain) - 1; i >= 0; i-- {
     bc.insert(newChain[i])
