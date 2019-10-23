@@ -92,11 +92,11 @@ for it.Next(true) {
 它并不返回NodeIterator，而是返回Iterator指针对象。Iterator是一个结构体，只有一个方法。定义如下：
 ```go
 type Iterator struct {
-	nodeIt NodeIterator
+  nodeIt NodeIterator
 
-	Key   []byte // Current data key on which the iterator is positioned on
-	Value []byte // Current data value on which the iterator is positioned on
-	Err   error
+  Key   []byte // Current data key on which the iterator is positioned on
+  Value []byte // Current data value on which the iterator is positioned on
+  Err   error
 }
 
 //Iteartor的Next方法
@@ -223,10 +223,10 @@ Trie对象的Get、Update、Delete等方法实现了其增删改查的功能（�
 我们首先来看fullNode的定义：
 ```go
 // code in node.go
-	fullNode struct {
-		Children [17]node
-		flags    nodeFlag
-	}
+fullNode struct {
+  Children [17]node
+  flags    nodeFlag
+}
 ```
 
 结构体中flags字段记录了一些结点的其它信息，可以忽略不看，我们重点关注Children字段。上篇中我们提到过根据数据的元素个数来区分fullNode和shortNode类型，这里可以看到Children字段恰好就是一个17个元素的数据（是的，写入数据库时只写入Children，而不写入flags字段）。
@@ -237,11 +237,11 @@ Trie对象的Get、Update、Delete等方法实现了其增删改查的功能（�
 shortNode的定义如下：
 ```go
 //code in node.go
-	shortNode struct {
-		Key   []byte
-		Val   node
-		flags nodeFlag
-	}
+shortNode struct {
+  Key   []byte
+  Val   node
+  flags nodeFlag
+}
 ```
 
 同样的我们忽略flags字段。可以看到shortNode有两个元素：Key和Val，这与我们之前介绍的一致（17个元素的是fullNode，2个元素的是shortNode）。
@@ -280,8 +280,8 @@ Trie.Hash
 ```go
 func (t *Trie) Hash() common.Hash {
   //注意hashRoot的参数为nil，即只计算哈希不保存到数据库中
-	hash, cached, _ := t.hashRoot(nil)
-	t.root = cached
+  hash, cached, _ := t.hashRoot(nil)
+  t.root = cached
   return hash
 }
 ```
@@ -289,8 +289,8 @@ func (t *Trie) Hash() common.Hash {
 Trie.Commit
 ```go
 func (t *Trie) Commit() (root common.Hash, err error) {
-	hash, cached, err := t.hashRoot(db)
-	t.root = cached
+  hash, cached, err := t.hashRoot(db)
+  t.root = cached
   return hash
 }
 ```
@@ -298,51 +298,53 @@ func (t *Trie) Commit() (root common.Hash, err error) {
 Trie.hashRoot
 ```go
 func (t *Trie) hashRoot(db DatabaseWriter) (node, node, error) {
-	h := newHasher()
-	return h.hash(t.root, db, true)
+  h := newHasher()
+  return h.hash(t.root, db, true)
 }
 ```
 
 hasher.hash及相关代码：
 ```go
 //hash返回的第一个node为hashNode，第二个node为传入参数n的缓存（其实也可以理解成拷贝）
-//collapsed为“压缩的”结点，即把正常的shortNode或fullNode变成一个hashNode。
+//collapsed为「压缩的」树，即它的所有子孙结点都是 hashNode。
 func (h *hasher) hash(n node, db DatabaseWriter, force bool) (node, node, error) {
-	collapsed, cached, err := h.hashChildren(n, db)
+  collapsed, cached, err := h.hashChildren(n, db)
 
-	hashed, err := h.store(collapsed, db, force)
+  hashed, err := h.store(collapsed, db, force)
   return hashed, cached, err
 }
 
-//hashChildren与hash类似，返回的第一个node为hashNode，第二个node为传入参数original的缓存
+//hashChildren 以给定的结点为根，将这个子树「压缩」。
+//所谓「压缩」，就是将所有子孙结点变成 hashNode 类型（并将原始节点存储到数据库中）。
+//hashChildren 的第一个返回值正是「压缩」树的根；第二个node为传入参数original的缓存
 func (h *hasher) hashChildren(original node, db DatabaseWriter) (node, node, error) {
-	switch n := original.(type) {
-	case *shortNode:
-		collapsed := n.copy()
-		collapsed.Key = hexToCompact(n.Key)
+  switch n := original.(type) {
+  case *shortNode:
+    collapsed := n.copy()
+    collapsed.Key = hexToCompact(n.Key)
 
     cached := n.copy()
-		cached.Key = common.CopyBytes(n.Key)
+    cached.Key = common.CopyBytes(n.Key)
 
-		if _, ok := n.Val.(valueNode); !ok {
-			collapsed.Val, cached.Val, err = h.hash(n.Val, db, false)
-		}
-		return collapsed, cached, nil
+    if _, ok := n.Val.(valueNode); !ok {
+      collapsed.Val, cached.Val, err = h.hash(n.Val, db, false)
+    }
+    return collapsed, cached, nil
 
-	case *fullNode:
-		// Hash the full node's children, caching the newly hashed subtrees
-		collapsed, cached := n.copy(), n.copy()
+  case *fullNode:
+    // Hash the full node's children, caching the newly hashed subtrees
+    collapsed, cached := n.copy(), n.copy()
 
-		for i := 0; i < 16; i++ {
-			collapsed.Children[i], cached.Children[i], err = h.hash(n.Children[i], db, false)
-		}
-		cached.Children[16] = n.Children[16]
-		return collapsed, cached, nil
+    for i := 0; i < 16; i++ {
+      collapsed.Children[i], cached.Children[i], err = h.hash(n.Children[i], db, false)
+    }
+    cached.Children[16] = n.Children[16]
+    return collapsed, cached, nil
 
-	default:
-		// Value and hash nodes don't have children so they're left as were
-		return n, original, nil
-	}
+  default:
+    // Value and hash nodes don't have children so they're left as were
+    return n, original, nil
+  }
 }
 
 
@@ -350,25 +352,27 @@ func (h *hasher) hashChildren(original node, db DatabaseWriter) (node, node, err
 //Trie.Hash和Trie.Commit的区别也仅仅体现在这里。将普通结点变为hashNode这一操作也是
 //发生在这里
 func (h *hasher) store(n node, db DatabaseWriter, force bool) (node, error) {
-	h.tmp.Reset()
-	if err := rlp.Encode(h.tmp, n); err != nil {
-		panic("encode error: " + err.Error())
-	}
+  h.tmp.Reset()
+  if err := rlp.Encode(h.tmp, n); err != nil {
+    panic("encode error: " + err.Error())
+  }
 
-	h.sha.Reset()
-	h.sha.Write(h.tmp.Bytes())
-	hash = hashNode(h.sha.Sum(nil)) //将普通结点转变成对应的hashNode
+  h.sha.Reset()
+  h.sha.Write(h.tmp.Bytes())
+  hash = hashNode(h.sha.Sum(nil)) //将普通结点转变成对应的hashNode
 
-	if db != nil {
-		return hash, db.Put(hash, h.tmp.Bytes())
-	}
-	return hash, nil
+  if db != nil {
+    return hash, db.Put(hash, h.tmp.Bytes())
+  }
+  return hash, nil
 }
 ```
 
 注意上面hasher.hash和hasher.hashChildren的实现。这两个方法通过相互的递归调用，从叶子结点开始逐步地将所有结点变成hashNode。
 
-其实hasher.hash和hasher.hashChildren始终维护着两棵树，也就是它们的返回值的前两个node。第一棵树是“压缩的”(collapsed)树，这完全是一棵由hashNode组成的树，因此根结点的值也就是整棵树的哈希；第二棵树是原始的树，这样可以防止每次调用Trie.Hash或Trie.Commit后，所有结点都被变成了hashNode，后续再次调用Trie.Get等方法时又得从数据库中重新加载。
+`hasher.hash` 始终维护着两棵树，它的前两个返回值分别为这两棵树的根。第一棵树的所有结点都是 `hashNode` 类型，包括根结点，因此使用这棵树可以很快的获得整棵树的哈希；第二棵树是原始的树，其结点可能是 `fullNode` 或 `shortNode`（当然也可能是其它类型）。使用这棵树可以防止每次调用 `Trie.Hash` 或 `Trie.Commit` 后，所有结点都被变成了 `hashNode`，后续再次调用 `Trie.Get` 等方法时又得从数据库中重新加载。
+
+`hasher.hashChildren` 用来将某个结点的所有子结点变成 `hashNode` 类型。作为 `hasher.hash` 的辅助方法，`hasher.hashChildren` 也维护了两棵树，不同的是它的第一棵树的根（也就是第一个返回值）并不是 `hashNode` 类型，只是这个根的所有子孙结点是 `hashNode` 类型而已。
 
 
 ### Database
