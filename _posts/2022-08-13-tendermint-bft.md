@@ -15,8 +15,7 @@ author: fatcat22
 
 > 这篇文章，我将介绍一下 Tendermint 的共识算法和实现，其中会用到 PBFT 的一些知识，所以如果您对 PBFT 不太了解，最好能提前学习一下，比如读一下我之前写的[关于拜占庭将军问题的文章](https://yangzhe.me/2019/11/06/byzantine-generals-problem/)、[关于 PBFT 的文章](https://yangzhe.me/2019/11/25/pbft/)。
 
-> 本文章分析的代码为[Tendermint 官方的 tag 号为 v0.35.9 的代码](https://github.com/tendermint/tendermint/tree/v0.35.9)。
-
+> 本文章分析的代码为 Tendermint 官方的 master 分支，commit id 我记不太准了，因为中间我 pull 过，大约是 [d0c345734342a49caea8dcc95f4a4382226708ea](https://github.com/tendermint/tendermint/tree/d0c345734342a49caea8dcc95f4a4382226708ea) 吧 ......
 
 # 什么是 Tendermint
 
