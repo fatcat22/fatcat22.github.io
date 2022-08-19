@@ -1025,7 +1025,7 @@ func (voteSet *VoteSet) addVote(vote *Vote) (added bool, err error) {
 	case cstypes.RoundStepNewRound:
 		cs.enterPropose(ctx, ti.Height, 0)
 ```
-这里 `enterPropose` 参 3 个参数就是 round 值，永远是 0 。
+这里 `enterPropose` 的 3 个参数就是 round 值，永远是 0 （但其实是不太对的，稍后我们会说明）。
 
 其实这个类型的超时只有在两种情况会被设置，一是在 `enterNewRound` 中，并且是第 0 轮，如果配置里配置的是 Proposal 时如果没有 transaction 就等一会，就会设置这个超时：
 ```go
@@ -1062,7 +1062,7 @@ func (cs *State) enterPropose(ctx context.Context, height int64, round int32) {
 
 可见上面无论哪种情况，前提都是要提案了，只不要要等一会而已，所以我把这个类型的意义解释为 「是时候开始真的开启共识了」 。
 
-（但上面第二种情况，在处理此超时信息时，显然不应该用 0 调用 `enterPropose`，这觉得这是一个 bug ，已经经 tendermint 提了一个 [issue](https://github.com/tendermint/tendermint/issues/9229) , 截止文章发出来前，还没有回应）。
+（但上面第二种情况，在处理此超时信息时，显然不应该用 0 调用 `enterPropose`，而应该用 `ti.Round`。我觉得这是一个 bug ，所以给他们提了 [issue](https://github.com/tendermint/tendermint/issues/9229) 并提交了 [pull request](https://github.com/tendermint/tendermint/pull/9252)，目前已经被 merge 了。但实际情况有点复杂，我看的代码是 master 分支的，但他们已经转移到 main 分支了，所以代码稍微有些过时，在 main 分支上，`enterPropose` 中已经不存在设置 `RoundStepNewRound` 超时了；但他们还是合并了代码，因为会导致潜在的 bug）。
 
 
 #### `RoundStepPropose`
