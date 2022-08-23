@@ -3,7 +3,7 @@ layout: post
 title:  "Tendermint 中的拜占庭共识算法"
 categories: blockchain
 tags: 原创 tendermint consensus
-excerpt: 博客终于又开始更新啦哈哈
+excerpt: Tendermint 中的 BFT 有什么不一样的？
 author: fatcat22
 ---
 
