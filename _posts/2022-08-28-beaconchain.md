@@ -80,7 +80,7 @@ function deposit(
 }
 ```
 提交成功后，Beacon Chain 就可以拿到数据并对其进行处理：
-```Rust
+```rust
     impl Log {
         /// Attempts to parse a raw `Log` from the deposit contract into a `DepositLog`.
         pub fn to_deposit_log(&self, spec: &ChainSpec) -> Result<DepositLog, String> {
@@ -116,7 +116,7 @@ function deposit(
     }
 ```
 Beacon Chain 拿到 log 数据后，会处理其中的质押数据：
-```Rust
+```rust
 pub fn process_deposit<T: EthSpec>(
     state: &mut BeaconState<T>,
     deposit: &Deposit,
@@ -144,7 +144,7 @@ pub fn process_deposit<T: EthSpec>(
 }
 ```
 上面的 `Validator` 结构其实就是 Beacon 手册中 `Validator` 的定义：
-```Python
+```python
 class Validator(Container):
     pubkey: BLSPubkey
     withdrawal_credentials: Bytes32  # Commitment to pubkey for withdrawals
@@ -158,7 +158,7 @@ class Validator(Container):
 ```
 
 其中有几个字段需要特别注意一下，一个是 `effective_balance` ，这个字段记录的是 validator 在整个过程中的 `balance` 数量（包括质押的和后来奖励的），上面的代码对其进行了初始化：
-```Rust
+```rust
             effective_balance: std::cmp::min(
                 amount.safe_sub(amount.safe_rem(spec.effective_balance_increment)?)?,
                 spec.max_effective_balance,
@@ -168,7 +168,7 @@ class Validator(Container):
 另一个需要注意的字段是 `activation_epoch` ，它记录了 validator 何时「正式工作」。上面初始化时它们都被初始化成 `spec.far_future_epoch` ，即 Beacon 手册中的 `FAR_FUTURE_EPOCH` ，它其实代表的是一个无效值，类似于编程语言中的 NULL 。也就是说，在创建一个 validator 对象后，它还不能开始出块。
 
 上面的代码算是打通了从质押到成为 validator 的步骤。但此时 TA 还不能参与出块，一个原因是质押的币未必符合要求。合约要求只要质押数量大于 1 ETH 就可以，而要成为一个有效的 validator 则需要质押 `MAX_EFFECTIVE_BALANCE` 即 32  ETH：
-```Python
+```python
 # 此函数在 lighthouse 中有同名函数，实现也是类似的
 def is_eligible_for_activation_queue(validator: Validator) -> bool:
     """
@@ -182,7 +182,7 @@ def is_eligible_for_activation_queue(validator: Validator) -> bool:
 这个函数用于判断是不是可以「激活」一个 validator ，从实现可以看出来，需要满足 `validator.effective_balance == MAX_EFFECTIVE_BALANCE` 。
 
 另一个原因是我们刚才也提到了，代表「何时可以出块」的 `activation_epoch` 的值无效。那它的值应该是什么呢？
-```Python
+```python
 # 此函数在 lighthouse 中有同名函数，实现也是类似的
 def compute_activation_exit_epoch(epoch: Epoch) -> Epoch:
     """
@@ -209,7 +209,7 @@ def compute_activation_exit_epoch(epoch: Epoch) -> Epoch:
 但总而言之，我对这个问题确实不是很理解，如果您了解使用 `MAX_SEED_LOOKAHEAD` 的原因，非常感谢您能赐教。
 
 激活 validator 还有一个重要的限制：为了安全起见，在每个 epoch 周期内，不会一次性激活太多 validator 。否则的话，有可能一下子次涌入超过 1/3 的 validator ，而这些 validator 如果属于某一个人或团体，那就区块链就被控制了。在 Beacon 手册中限制的代码如下：
-```Python
+```python
 def process_registry_updates(state: BeaconState) -> None:
     # hiden code ......
      for index in activation_queue[:get_validator_churn_limit(state)]:
@@ -231,7 +231,7 @@ def get_validator_churn_limit(state: BeaconState) -> uint64:
 有质押成为 validator 的想法，就有退出不想当 validator 的想法。退出其实分两种，一种是主动退出，一种是被动退出。主动退出好理解，就是自己不想干了；被动退出则是指 validator 出错太多，被罚了很多钱，系统主动踢出。
 
 前面我们提到，成为一个正式的 validator 需要 32 ETH，这 32 个 ETH 连同被奖励的钱，都会记录在 `effective_balance` 中；在每个 epoch 开始的时候，系统会检查这个字段的值是否小于或等于 `EJECTION_BALANCE`，如果是，则会准备将这个 validator 踢出。
-```Python
+```python
 def process_registry_updates(state: BeaconState) -> None:
     # Process activation eligibility and ejections
     for index, validator in enumerate(state.validators):
@@ -255,7 +255,7 @@ def initiate_validator_exit(state: BeaconState, index: ValidatorIndex) -> None:
     validator.withdrawable_epoch = Epoch(validator.exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
 ```
 退出的主要方式是设置 validator 的 `exit_epoch` 字段。当 epoch 超过这个值时，这个 validator 就不会被当作一个有效的 validator:
-```Python
+```python
 def is_active_validator(validator: Validator, epoch: Epoch) -> bool:
     """
     Check if ``validator`` is active.
@@ -264,7 +264,7 @@ def is_active_validator(validator: Validator, epoch: Epoch) -> bool:
 ```
 
 如果是自愿退出，就要构造并签名一个 `SignedVoluntaryExit` 消息。在处理每个 Block 时，会发现并处理这个消息：
-```Python
+```python
 def process_block(state: BeaconState, block: BeaconBlock) -> None:
     # hiden code ......
     process_operations(state, block.body)
@@ -294,7 +294,7 @@ def process_voluntary_exit(state: BeaconState, signed_voluntary_exit: SignedVolu
 可以看到自愿退出的时候，最终调用的函数是 `process_voluntary_exit` ，这个函数主要检查参数和签名是否正常，然后同样调用 `initiate_validator_exit` 设置其退出。
 
 同质押类似，退出时一个 epoch 内也不能一下子退出太多。这个逻辑是设计在 `initiate_validator_exit` 里的：
-```Python
+```python
 def initiate_validator_exit(state: BeaconState, index: ValidatorIndex) -> None:
     """
     Initiate the exit of the validator with index ``index``.
@@ -318,7 +318,7 @@ def initiate_validator_exit(state: BeaconState, index: ValidatorIndex) -> None:
 前面说过，Beacon Chain 并非与以太坊主链完全没有关系，这个关系体现之一就是，它不像其它完全独立的主链一样，随时可以启动（创建创世块），而是需要满足一定条件的。
 
 首先，创世块的创建需要建立在原以太坊的 block 之上：
-```Python
+```python
 def initialize_beacon_state_from_eth1(eth1_block_hash: Hash32,
                                       eth1_timestamp: uint64,
                                       deposits: Sequence[Deposit]) -> BeaconState:
@@ -338,7 +338,7 @@ Beacon 手册中这个函数用来创建一个「候选的 state」（candidate 
 所谓「创世时间」指的是 `genesis_time` 这个字段。
 
 这个判断是在 `is_valid_genesis_state` 中完成的：
-```Python
+```python
 def is_valid_genesis_state(state: BeaconState) -> bool:
     if state.genesis_time < MIN_GENESIS_TIME:
         return False
@@ -356,7 +356,7 @@ def is_valid_genesis_state(state: BeaconState) -> bool:
 - 当前时间为区块 O 的时间 + `GENESIS_DELAY` 时，开始正式运行。
 
 上面几条中最后一个逻辑的代码如下：
-```Rust
+```rust
 async fn wait_for_genesis<E: EthSpec>(
     beacon_nodes: &BeaconNodeFallback<SystemTimeSlotClock, E>,
     genesis_time: u64,
@@ -399,7 +399,7 @@ Beacon Chain 中出块的时间间隔被称为 `slot` ，当前值为 12 秒（`
 虽然这里面出现了很多概念我们还没涉及到，不过现在不用理会。你只要理解：slot 是出块的节奏，epoch 是做上面三件事的节奏。
 
 当然，严格地说，epoch 不仅是上面三件事的节奏，还有好多事，这从 `process_epoch` 这个函数就能看出来：
-```Python
+```python
 def process_epoch(state: BeaconState) -> None:
     process_justification_and_finalization(state)
     process_rewards_and_penalties(state)
@@ -423,7 +423,7 @@ validator 指的是 PoS 共识中参与出块与投票的人，这个概念相�
 我们前面提过，epoch 是创建 committee 的节奏。也就是说，每个 epoch 周期开始时，此 epoch 内的每一个 solt 都有哪些 committee 、每个 committee 都由哪些 validator ，都是在每个 epoch 周期开始的时候，就设置好了。 这是如何分配的呢？
 
 `get_beacon_committee` 函数用来分配指定 slot 和 index 的 committee 的成员：
-```Python
+```python
 def get_beacon_committee(state: BeaconState, slot: Slot, index: CommitteeIndex) -> Sequence[ValidatorIndex]:
     """
     Return the beacon committee at ``slot`` for ``index``.
@@ -440,7 +440,7 @@ def get_beacon_committee(state: BeaconState, slot: Slot, index: CommitteeIndex) 
 注意这里调用的参数需要 `slot` 和 `index` ，其中 `slot` 即前面我们提到的 slot 的值；`index` 是想要获取的 committee 的 index —— 前面我们说过，一个 slot 可能分配多个 committee 。
 
 这个函数里调用了 `get_committee_count_per_slot` 来计算每个 slot 需要分配多少个 committee，它的实现如下：
-```Python
+```python
 def get_committee_count_per_slot(state: BeaconState, epoch: Epoch) -> uint64:
     """
     Return the number of committees in each slot for the given ``epoch``.
@@ -453,7 +453,7 @@ def get_committee_count_per_slot(state: BeaconState, epoch: Epoch) -> uint64:
 计算方法就是根据当前有效的 validator 的总数量除以 epoch 周期中 slot 的数量，得到每个 slot 可以有多少个 validator ；然后将每个 slot 可以分配的 validator 数量除以 committee 数量（`TARGET_COMMITTEE_SIZE`），得到每个 slot 可以分配多少个 committee。
 
 最后，`get_beacon_committee` 函数调用了 `compute_committee` 最终返回 committee 成员：
-```Python
+```python
 def compute_committee(indices: Sequence[ValidatorIndex],
                       seed: Bytes32,
                       index: uint64,
@@ -488,7 +488,7 @@ def compute_committee(indices: Sequence[ValidatorIndex],
 虽然我觉得 `RANDAO` 这个名挺「高大上」的，但它的实现其实非常简单。这里我先把它的一些关键点列出来，最后将它们串起来，就很容易理解它了。
 
 我们先来看 Beacon 手册中更新 `randao_mixes` 的函数：
-```Python
+```python
 def process_randao(state: BeaconState, body: BeaconBlockBody) -> None:
     epoch = get_current_epoch(state)
     # Verify RANDAO reveal
@@ -500,7 +500,7 @@ def process_randao(state: BeaconState, body: BeaconBlockBody) -> None:
     state.randao_mixes[epoch % EPOCHS_PER_HISTORICAL_VECTOR] = mix
 ```
 这个函数是 `RANDAO` 的一个核心，我们详细解释一下。这个函数的第二个参数是一个区块的 body ，在此函数中，先是保证区块的签名是正确的，然后最后关键的两行代码：
-```Python
+```python
     mix = xor(get_randao_mix(state, epoch), hash(body.randao_reveal))
     state.randao_mixes[epoch % EPOCHS_PER_HISTORICAL_VECTOR] = mix
 ```
@@ -509,7 +509,7 @@ def process_randao(state: BeaconState, body: BeaconBlockBody) -> None:
 这个函数是什么时候调用的呢？处理每个区块的时候（`process_block` 函数中调用）。也就是说，每生成一个区块，就会改变当前 epoch 的 `randao_mixes` 值。
 
 `BeaconState.randao_mixes` 又是用来干什么的呢？它在 `get_seed` 中被调用：
-```Python
+```python
 def get_seed(state: BeaconState, epoch: Epoch, domain_type: DomainType) -> Bytes32:
     """
     Return the seed at ``epoch``.
@@ -520,7 +520,7 @@ def get_seed(state: BeaconState, epoch: Epoch, domain_type: DomainType) -> Bytes
 还记得前面我们提过，分配 committee 时会调用 `get_seed` 吗？不过这里需要注意的是，调用 `get_randao_mix` 时的 epoch 值，并不是当前 epoch ，而是当前 epoch 减去 `MIN_SEED_LOOKAHEAD` 。
 
 最后一个重要的点，就是每个 epoch 开始前，会将当前 epoch 的 `randao_mixes` 的值，更新为即将到来的 epoch 的 `randao_mixes` 值:
-```Python
+```python
 def process_randao_mixes_reset(state: BeaconState) -> None:
     current_epoch = get_current_epoch(state)
     next_epoch = Epoch(current_epoch + 1)
