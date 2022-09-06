@@ -131,7 +131,86 @@ func (cs *State) enterNewRound(ctx context.Context, height int64, round int32) {
 1. 如果是某一高度的第 0 轮，则 `cs.Round` 会被初始化为 0 (参数 `updateToState` 中对 `updateRoundStep` 的调用)，而参数 `round` 也是 0 （正如我们刚才提到的），所以此时「开始新的一轮」是指在新的高度上开始进入 round 0 ，而不是指「由 round X 进入到 round X+1」。
 2. 为了确保万无一失，在共识达成过程中仍有很多地方会调用 `enterNewRound` ，但此时的参数 `round` 很可能与 `cs.Round` 相同甚至较小，所以仍要判断一下。
 
-从这里我们也可以看出，只要某个 Proposer 一直成功，TA 就可以一直作为 Proposer 提案（即出块）。这是因为 「round」 在整个共识中起的作用与「域转换」相同，都是在失败时尝试重新达成共识的机制，所以当高度不变、重新开始新的一轮时，代表之前的「旧的那一轮」失败了，此时才会去更换 Proposer；当某一轮成功了，高度就会加 1 ，此时调用 `enterNewRound` 由于 `cs.Round` 和 `round` 都是 0 ，就不会更换 Proposer 了。（但是不知道这个机制合理吗？只要 TA 不失败就一直让 TA 出块，那挖矿的钱岂不是都让这个人挣去了哈哈）
+另外从这里也可以看到，除了第 0 轮，每加一轮，都会更换 Proposer 。因为 「round」 在整个共识中起的作用与「域转换」相同，都是在失败时尝试重新达成共识的机制，所以当高度不变、重新开始新的一轮时，代表之前的「旧的那一轮」失败了，此时才会去更换 Proposer。但当某一轮成功了，高度就会加 1 后，难道就不会更换 Proposer 了吗？（此时调用 `enterNewRound` 由于 `cs.Round` 和 `round` 都是 0 ，所以这里是不会更换 Proposer 了）。当然不是，高度加 1 后， Proposer 不是在这里改的，而是在正式提交 Block 时改的：
+```go
+func (cs *State) finalizeCommit(height int64) {
+	/// hiden code ......
+	stateCopy := cs.state.Copy()
+	/// hiden code ......
+	stateCopy, retainHeight, err = cs.blockExec.ApplyBlock(
+		stateCopy,
+		types.BlockID{
+			Hash:          block.Hash(),
+			PartSetHeader: blockParts.Header(),
+		},
+		block,
+	)
+	/// hiden code ......
+	cs.updateToState(stateCopy)
+
+	/// hiden code ......
+}
+```
+`finalizeCommit` 用于最终提交区块。在 `updateToState` 中，会修改 `State.Validators` 字段（这个字段正是刚才 `enterNewRound` 中用到的字段），这个字段改了，Proposer 自然也就改了：
+```go
+func (cs *State) updateToState(state sm.State) {
+	/// hiden code ......
+	validators := state.Validators
+	/// hiden code ......
+	cs.Validators = validators
+	/// hiden code ......
+}
+```
+可以看到新的 `State.Validators` 来自于参数 `sm.State.Validators` 这个字段。那这个字段哪来的呢？从刚才 `finalizeCommit` 中可以看到，它来自于 `ApplyBlock`：
+```go
+func (blockExec *BlockExecutor) ApplyBlock(
+	state State, blockID types.BlockID, block *types.Block,
+) (State, int64, error) {
+	/// hiden code ......
+
+	validatorUpdates, err := types.PB2TM.ValidatorUpdates(abciValUpdates)
+
+	/// hiden code ......
+
+	state, err = updateState(state, blockID, &block.Header, abciResponses, validatorUpdates)
+
+	/// hiden code ......
+}
+```
+在 `ApplyBlock` 中，首先获取新的 validators ，然后使用这些新的值调用 `updateState` ，生成新的 `sm.State.Validators` 字段：
+```go
+func updateState(
+	state State,
+	blockID types.BlockID,
+	header *types.Header,
+	abciResponses *tmstate.ABCIResponses,
+	validatorUpdates []*types.Validator,
+) (State, error) {
+	nValSet := state.NextValidators.Copy()
+	/// hiden code ......
+	if len(validatorUpdates) > 0 {
+		// 将新的 validators 合并
+		err := nValSet.UpdateWithChangeSet(validatorUpdates)
+		/// hiden code ......
+	}
+	
+	/// hiden code ......
+
+	nValSet.IncrementProposerPriority(1)
+
+	/// hiden code ......
+	return State{
+		/// hiden fields ......
+		NextValidators:                   nValSet,
+		Validators:                       state.NextValidators.Copy(),
+		/// hiden fields ......
+	}
+}
+```
+最后返回的 `State` 代表即将到来的高度（当前高度 + 1）的 state ，它的 `Validators` 字段来自于当前高度的 `NextValidators` 字段；`nValSet` 也来自于这个字段，但合并了新的 validators ，所以将它作为即将到来的高度的下一个高度（当前高度 + 2）的 validators，赋值给了返回的 state 的 `NextValidators` 。并且在 `nValSet` 中合入新的 validators 后，会调用 `IncrementProposerPriority` 生成新的 Proposer ，**Proposer 的更换也是发生在这里了** 。
+
+所以总得来说，高度发生改变时，Proposer 的更换是在正式提交 Block 时发生的。在 `ApplyBlock` 时，会合并新加入的 validators 并计算 Proposer 后，作为「当前高度 + 2」的区块的 validators ；而当前高度的 `NextValidators` 理所应当的作为下一个高度（当前高度 + 1）区块的 validators 。  
+（之前在看代码时，没看明白 Proposer 是怎么更换的，只看到了 `enterNewRound` 中对 `IncrementProposerPriority` 调用的判断，就以为是「只要每次出块都在第 0 轮被确认，就不会更换 Proposer」，虽然也在这篇文章里提出了疑问这样好像不合理，但并没有继续深入解决这个问题；直到最近在一次与朋友的沟通中，聊到了这个问题，促使我又回来重新看一下这个问题，其实也没花多长时间就看明白了。唉 还是自己偷懒了 ......）
 
 初始化这些数据之后，接下来就进入到了 `enterPropose` 方法。我们看看 `enterPropose` 都做了些什么：
 ```go
