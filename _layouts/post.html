@@ -85,7 +85,6 @@ layout: default
                 </ul>
             </div>
             {% if site.social-share %}
-
             <div class="side">
                 <div>Share </div>
                 <div class="social-share"></div>
@@ -107,9 +106,9 @@ layout: default
         }
     }());
 </script>
-<script src="{{ " /js/pageContent.js " | prepend: site.baseurl }}" charset="utf-8"></script>
+<script src="{{ '/js/pageContent.js' | prepend: site.baseurl }}" charset="utf-9"></script>
 
-<script src="{{ " /js/social-share.min.js" | relative_url }}"></script>
+<script src="{{ '/js/social-share.min.js' | prepend: site.baseurl }}"></script>
 <script>
     socialShare('.social-share', {
         sites: [
