@@ -17,55 +17,54 @@ layout: default
             </div>
 
             <div class="label-card">
-                {% if page.meta %}<i class="fa fa-key"></i>{{ page.meta }}  {% endif %}
+                {% if page.meta %}<i class="fa fa-key"></i>{{ page.meta }} {% endif %}
             </div>
 
             <div class="label-card">
-            {% include category.html %}
+                {% include category.html %}
             </div>
 
             <div class="label-card">
-            {% include tag.html %}
+                {% include tag.html %}
             </div>
 
         </div>
         <hr>
         <article itemscope itemtype="http://schema.org/BlogPosting">
-        {{content}}
+            {{content}}
         </article>
         <hr>
 
         {% assign hasSimilar = '' %}
         {% for post in site.related_posts %}
-            {% assign postHasSimilar = false %}
-            {% for tag in post.tags %}
-                {% for thisTag in page.tags %}
-                    {% if postHasSimilar == false and hasSimilar.size < 6 and post != page and tag == thisTag %}
-                        {% if hasSimilar.size == 0 %}
-                        <h2 id="similar_posts">Similar Posts</h2>
-                        <ul>
+        {% assign postHasSimilar = false %}
+        {% for tag in post.tags %}
+        {% for thisTag in page.tags %}
+        {% if postHasSimilar == false and hasSimilar.size < 6 and post !=page and tag==thisTag %} {% if
+            hasSimilar.size==0 %} <h2 id="similar_posts">Similar Posts</h2>
+            <ul>
+                {% endif %}
+                <li class="relatedPost">
+                    <a href="{{ site.baseurl }}{{ post.url }}">{{ post.title }}
+                        {% if post.series %}
+                        (Series: {{ post.series }})
                         {% endif %}
-                        <li class="relatedPost">
-                            <a href="{{ site.baseurl }}{{ post.url }}">{{ post.title }}
-                            {% if post.series %}
-                                (Series: {{ post.series }})
-                            {% endif %}
-                            </a>
-                        </li>
-                        {% capture hasSimilar %}{{ hasSimilar }}*{% endcapture %}
-                        {% assign postHasSimilar = true %}
-                    {% endif %}
+                    </a>
+                </li>
+                {% capture hasSimilar %}{{ hasSimilar }}*{% endcapture %}
+                {% assign postHasSimilar = true %}
+                {% endif %}
                 {% endfor %}
-            {% endfor %}
-        {% endfor %}
-        {% if hasSimilar.size > 0 %}
+                {% endfor %}
+                {% endfor %}
+                {% if hasSimilar.size > 0 %}
             </ul>
-        {% endif %}
+            {% endif %}
 
-        {% include previousAndNext.html %}
+            {% include previousAndNext.html %}
 
-        <h2 id="comments">Comments</h2>
-        {% include comments.html %}
+            <h2 id="comments">Comments</h2>
+            {% include comments.html %}
 
 
     </div>
@@ -85,20 +84,45 @@ layout: default
                     <li><a href="#comments">Comments</a></li>
                 </ul>
             </div>
+            {% if site.social-share %}
+
+            <div class="side">
+                <div>Share </div>
+                <div class="social-share"></div>
+            </div>
+            {% endif %}
             <!-- 其他div框放到这里 -->
             <!-- <div class="side">bbbb</div> -->
         </div>
     </div>
 </div>
 <script>
-/**
- * target _blank
- */
-(function() {
-    var aTags = document.querySelectorAll('article a:not([id])')
-    for (var i = 0; i < aTags.length; i++) {
-        aTags[i].setAttribute('target', '_blank')
-    }
-}());
+    /**
+     * target _blank
+     */
+    (function () {
+        var aTags = document.querySelectorAll('article a:not([id])')
+        for (var i = 0; i < aTags.length; i++) {
+            aTags[i].setAttribute('target', '_blank')
+        }
+    }());
 </script>
-<script src="{{ "/js/pageContent.js " | prepend: site.baseurl }}" charset="utf-8"></script>
+<script src="{{ " /js/pageContent.js " | prepend: site.baseurl }}" charset="utf-8"></script>
+
+<script src="{{ " /js/social-share.min.js" | relative_url }}"></script>
+<script>
+    socialShare('.social-share', {
+        sites: [
+            {% for i in site.social_share_items %}
+          '{{ i }}'
+          {% if forloop.last == false %},
+    {% endif %}
+    {% endfor %}
+      ],
+    wechatQrcodeTitle: "分享到微信朋友圈",
+        wechatQrcodeHelper: '<p>扫码后点击右上角</p><p>将本文分享至朋友圈</p>'
+    });
+</script>
+
+<!-- share.css -->
+<link rel="stylesheet" href="/css/share.min.css">
