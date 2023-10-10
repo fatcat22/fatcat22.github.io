@@ -30,7 +30,10 @@ type: page
 | ![](/donate/wx_qrcode.jpg) | ![](/donate/zfb_qrcode.jpg) | ![0x88D550e8bBfE8F3164745678b14Df03140C31d5c](/donate/eth_qrcode.png) |
 |                            |                             |                                                                       |
 
+## 版权说明
+除非特别声明，本站所有内容均采用[署名-非商业使用 4.0 国际](https://creativecommons.org/licenses/by-nc/4.0/deed.zh)（CC BY-NC 4.0）创作共享协议。通俗地讲，只要在使用时进行署名（包括但不限于创作者的姓名或名称、作品链接等），那么使用者可以对本站所有内容进行转载、节选、二次创作，但不得将本作品用于商业目的。  
 
+另外在使用本站内容的同时，烦请留言或邮件告知。
 
 
 ## Comments
