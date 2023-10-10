@@ -7,7 +7,7 @@
 
 # Site settings
 title: fatcat
-brief-intro: 枝头不见绿，蓄势待春风
+brief-intro: 慢即是快
 baseurl: "" # the subpath of your site, e.g. /blog
 url: "https://fatcat22.github.io" # the base hostname & protocol for your site
 
