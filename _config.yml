@@ -51,7 +51,7 @@ excerpt_separator: "\n\n\n\n"
 
 # paginate
 plugins: [jekyll-paginate]
-paginate: 6
+paginate: 8
 
 # Share
 social-share: true # 开启或者关闭分享功能
