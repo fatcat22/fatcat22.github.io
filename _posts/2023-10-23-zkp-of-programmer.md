@@ -16,6 +16,8 @@ top: true
 
 # 1. 入门 groth16
 
+groth16 系列的文章框架来自于 [Why and How zk-SNARK Works](https://arxiv.org/pdf/1906.07221.pdf) 这篇论文，加入了我自己对很多细节的理解。英文好的朋友也可以直接读原文，遇到不理解的地方再回来这里，看看是否有解释。
+
 - [01-零知识证明初接触](https://yangzhe.me/2023/10/11/first-story-of-zk/)
 - [02-如何证明拥有一个多项式](https://yangzhe.me/2023/10/12/how-to-proof-own-a-polynomial/)
 - [03-互不信任之一：加密随机值](https://yangzhe.me/2023/10/13/distrust1-encrypt-random/)
